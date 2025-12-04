@@ -1223,9 +1223,10 @@ def create_dashboard():
 if __name__ == "__main__":
     demo = create_dashboard()
     demo.launch(
-        server_name="127.0.0.1",
-        server_port=7863,
-        share=True,
+        server_name="0.0.0.0",  # Use 0.0.0.0 for HF Spaces compatibility
+        server_port=7860,  # Default Gradio port for HF Spaces
+        share=False,  # Not needed on HF Spaces (auto-handled)
         show_error=True,
+        ssr_mode=False,  # Disable SSR to prevent event loop issues
         theme=gr.themes.Soft()
     )
