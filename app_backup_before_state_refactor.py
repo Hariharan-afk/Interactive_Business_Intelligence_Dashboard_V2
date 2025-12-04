@@ -97,7 +97,7 @@ def upload_and_preview(file) -> Tuple[str, pd.DataFrame, pd.DataFrame, str, pd.D
         return f"Error: {str(e)}", None, None, "", None, None, {}
 
 
-def show_column_types(stored_df, stored_column_types) -> Tuple[pd.DataFrame, str]:
+def show_column_types(file) -> Tuple[pd.DataFrame, str]:
     """
     Display detected column types.
     
@@ -105,12 +105,16 @@ def show_column_types(stored_df, stored_column_types) -> Tuple[pd.DataFrame, str
         Tuple of (column_types_df, status_message)
     """
     try:
-        if stored_df is None or not stored_column_types:
+        if file is None:
             return None, "Please upload a file first"
         
-        # Use stored data
-        df = stored_df
-        column_types = stored_column_types
+        # Load dataset
+        df, status = dp.load_dataset(file.name)
+        if df is None:
+            return None, status
+        
+        # Auto-detect column types
+        column_types = dp.auto_detect_column_types(df)
         
         # Create DataFrame for display
         types_data = {
@@ -642,7 +646,7 @@ def export_filtered_data(stored_df, stored_column_types, filter_column,
         return None
 
 
-def create_correlation_plot(stored_df, stored_column_types) -> plt.Figure:
+def create_correlation_plot(file) -> plt.Figure:
     """
     Create correlation heatmap.
     
@@ -650,16 +654,24 @@ def create_correlation_plot(stored_df, stored_column_types) -> plt.Figure:
         Matplotlib figure
     """
     try:
-        if stored_df is None or not stored_column_types:
+        if file is None:
             fig, ax = plt.subplots(figsize=config.CHART_FIGURE_SIZE)
             ax.text(0.5, 0.5, 'Please upload a file first', 
                    ha='center', va='center', fontsize=14)
             ax.axis('off')
             return fig
         
-        # Use stored data
-        df = stored_df.copy()
-        column_types = stored_column_types
+        # Load dataset
+        df, _ = dp.load_dataset(file.name)
+        if df is None:
+            fig, ax = plt.subplots(figsize=config.CHART_FIGURE_SIZE)
+            ax.text(0.5, 0.5, 'Error loading file', 
+                   ha='center', va='center', fontsize=14)
+            ax.axis('off')
+            return fig
+        
+        # Get column types
+        column_types = dp.auto_detect_column_types(df)
         filterable = dp.get_filterable_columns(df, column_types)
         
         # Create correlation heatmap
@@ -672,7 +684,7 @@ def create_correlation_plot(stored_df, stored_column_types) -> plt.Figure:
         return plt.figure()
 
 
-def generate_overview_charts(stored_df, stored_column_types) -> Tuple[plt.Figure, plt.Figure, plt.Figure, plt.Figure]:
+def generate_overview_charts(file) -> Tuple[plt.Figure, plt.Figure, plt.Figure, plt.Figure]:
     """
     Generate overview visualizations.
     
@@ -680,13 +692,18 @@ def generate_overview_charts(stored_df, stored_column_types) -> Tuple[plt.Figure
         Tuple of (missing_plot, numerical_plot, categorical_plot, correlation_plot)
     """
     try:
-        if stored_df is None or not stored_column_types:
+        if file is None:
             empty_fig = plt.figure()
             return empty_fig, empty_fig, empty_fig, empty_fig
         
-        # Use stored data
-        df = stored_df.copy()
-        column_types = stored_column_types
+        # Load dataset
+        df, _ = dp.load_dataset(file.name)
+        if df is None:
+            empty_fig = plt.figure()
+            return empty_fig, empty_fig, empty_fig, empty_fig
+        
+        # Get column types
+        column_types = dp.auto_detect_column_types(df)
         filterable = dp.get_filterable_columns(df, column_types)
         
         # Create charts
@@ -703,7 +720,7 @@ def generate_overview_charts(stored_df, stored_column_types) -> Tuple[plt.Figure
         return empty_fig, empty_fig, empty_fig, empty_fig
 
 
-def get_column_choices(stored_df, stored_column_types, col_type: str = 'all') -> gr.update:
+def get_column_choices(file, col_type: str = 'all') -> gr.update:
     """
     Get column choices for dropdowns.
     
@@ -715,11 +732,14 @@ def get_column_choices(stored_df, stored_column_types, col_type: str = 'all') ->
         Gradio dropdown update
     """
     try:
-        if stored_df is None or not stored_column_types:
+        if file is None:
             return gr.update(choices=[])
         
-        df = stored_df
-        column_types = stored_column_types
+        df, _ = dp.load_dataset(file.name)
+        if df is None:
+            return gr.update(choices=[])
+        
+        column_types = dp.auto_detect_column_types(df)
         filterable = dp.get_filterable_columns(df, column_types)
         
         if col_type == 'numeric':
@@ -735,7 +755,7 @@ def get_column_choices(stored_df, stored_column_types, col_type: str = 'all') ->
         return gr.update(choices=[])
 
 
-def create_custom_chart(stored_df, stored_column_types, chart_type: str, x_col: str, y_col: str = None, 
+def create_custom_chart(file, chart_type: str, x_col: str, y_col: str = None, 
                        color_col: str = None, agg_method: str = 'mean') -> go.Figure:
     """
     Create custom visualization based on user selections.
@@ -744,16 +764,24 @@ def create_custom_chart(stored_df, stored_column_types, chart_type: str, x_col: 
         Plotly figure
     """
     try:
-        if stored_df is None or not x_col:
+        if file is None or not x_col:
             fig = go.Figure()
             fig.add_annotation(text="Please upload a file and select columns", 
                              xref="paper", yref="paper",
                              x=0.5, y=0.5, showarrow=False)
             return fig
         
-        # Use stored data
-        df = stored_df.copy()
-        column_types = stored_column_types
+        # Load dataset
+        df, _ = dp.load_dataset(file.name)
+        if df is None:
+            fig = go.Figure()
+            fig.add_annotation(text="Error loading file", 
+                             xref="paper", yref="paper",
+                             x=0.5, y=0.5, showarrow=False)
+            return fig
+        
+        # Get column types
+        column_types = dp.auto_detect_column_types(df)
         
         # Create appropriate chart based on type
         if chart_type == "Time Series":
@@ -796,7 +824,7 @@ def create_custom_chart(stored_df, stored_column_types, chart_type: str, x_col: 
         return fig
 
 
-def generate_insights_report(stored_df, stored_column_types) -> Tuple[str, str, pd.DataFrame]:
+def generate_insights_report(file) -> Tuple[str, str, pd.DataFrame]:
     """
     Generate comprehensive insights report.
     
@@ -804,12 +832,16 @@ def generate_insights_report(stored_df, stored_column_types) -> Tuple[str, str, 
         Tuple of (summary_text, top_insights_text, performers_df)
     """
     try:
-        if stored_df is None or not stored_column_types:
+        if file is None:
             return "Please upload a file first", "", None
         
-        # Use stored data
-        df = stored_df.copy()
-        column_types = stored_column_types
+        # Load dataset
+        df, _ = dp.load_dataset(file.name)
+        if df is None:
+            return "Error loading file", "", None
+        
+        # Get column types
+        column_types = dp.auto_detect_column_types(df)
         filterable = dp.get_filterable_columns(df, column_types)
         
         # Generate summary insights
@@ -926,7 +958,7 @@ def create_dashboard():
                 
             show_types_btn.click(
                 fn=show_column_types,
-                inputs=[stored_df, stored_column_types],
+                inputs=[file_upload],
                 outputs=[column_types_display, type_status]
             ).then(
                 fn=get_columns_from_file,
@@ -976,7 +1008,7 @@ def create_dashboard():
                         missing_values_display, correlation_status]
             ).then(
                 fn=create_correlation_plot,
-                inputs=[stored_df, stored_column_types],
+                inputs=[file_upload],
                 outputs=[correlation_plot]
             )
         
@@ -1119,7 +1151,7 @@ def create_dashboard():
             # Connect overview charts
             generate_charts_btn.click(
                 fn=generate_overview_charts,
-                inputs=[stored_df, stored_column_types],
+                inputs=[file_upload],
                 outputs=[missing_plot, numerical_plot, categorical_plot, correlation_plot_overview]
             )
         
@@ -1150,27 +1182,25 @@ def create_dashboard():
             create_chart_btn = gr.Button("Create Chart", variant="primary", size="lg")
             custom_chart = gr.Plot(label="Custom Chart")
             
-
-            
-            # Update column dropdowns when data is uploaded (via stored_df change)
-            upload_btn.click(
-                fn=lambda df, types: get_column_choices(df, types, 'all'),
-                inputs=[stored_df, stored_column_types],
+            # Update column choices when file is uploaded
+            file_upload.change(
+                fn=lambda x: get_column_choices(x, 'all'),
+                inputs=[file_upload],
                 outputs=[x_column]
             ).then(
-                fn=lambda df, types: get_column_choices(df, types, 'all'),
-                inputs=[stored_df, stored_column_types],
+                fn=lambda x: get_column_choices(x, 'all'),
+                inputs=[file_upload],
                 outputs=[y_column]
             ).then(
-                fn=lambda df, types: get_column_choices(df, types, 'all'),
-                inputs=[stored_df, stored_column_types],
+                fn=lambda x: get_column_choices(x, 'all'),
+                inputs=[file_upload],
                 outputs=[color_column]
             )
             
             # Connect custom chart creation
             create_chart_btn.click(
                 fn=create_custom_chart,
-                inputs=[stored_df, stored_column_types, chart_type, x_column, y_column, color_column, agg_method],
+                inputs=[file_upload, chart_type, x_column, y_column, color_column, agg_method],
                 outputs=[custom_chart]
             )
         
@@ -1193,7 +1223,7 @@ def create_dashboard():
             # Connect insights generation
             generate_insights_btn.click(
                 fn=generate_insights_report,
-                inputs=[stored_df, stored_column_types],
+                inputs=[file_upload],
                 outputs=[summary_insights_display, top_insights_display, performers_display]
             )
         

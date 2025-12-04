@@ -418,26 +418,41 @@ def generate_top_insights_text(df: pd.DataFrame, column_types: Dict[str, str],
         else:
             insights_text.append(f"⚠️ **Data Quality Alert**: {missing_pct:.2f}% missing values detected")
         
-        # Insight 2: Outliers in numerical columns
+        # Insight 2: Outliers in numerical columns (ALWAYS REPORT)
         if numerical_cols:
             outliers = detect_outliers(df, numerical_cols[:3], method='iqr')
             if outliers:
-                for col, info in list(outliers.items())[:2]:
-                    insights_text.append(f"📊 **{col}**: {info['count']} outliers detected ({info['percentage']:.1f}%)")
+                outlier_count = sum(info['count'] for info in outliers.values())
+                outlier_cols = ', '.join(list(outliers.keys())[:2])
+                insights_text.append(f"📊 **Outliers Detected**: {outlier_count} anomalous values found in {outlier_cols}")
+            else:
+                insights_text.append(f"✅ **No Significant Outliers**: All numerical values fall within normal ranges (IQR method)")
         
-        # Insight 3: Category concentration
+        # Insight 3: Anomalies detection (ALWAYS REPORT)
+        if numerical_cols:
+            anomalies = detect_anomalies(df, numerical_cols[:3])
+            if anomalies:
+                total_anomalies = sum(len(col_anomalies) for col_anomalies in anomalies.values())
+                insights_text.append(f"⚠️ **Anomalies Found**: {total_anomalies} unusual patterns detected")
+            else:
+                insights_text.append(f"✅ **Data Consistency**: No unusual patterns or anomalies detected")
+        
+        # Insight 4: Category concentration
         if categorical_cols:
             concentration = calculate_category_concentration(df, categorical_cols[:3])
             for col, info in list(concentration.items())[:2]:
                 if info['is_concentrated']:
                     insights_text.append(f"📈 **{col}**: Highly concentrated - top value represents {info['top_1_ratio']:.1f}%")
         
-        # Insight 4: Strong correlations
+        # Insight 5: Strong correlations (ALWAYS REPORT if applicable)
         if len(numerical_cols) >= 2:
             correlations = find_correlations(df, numerical_cols, threshold=0.7)
-            for col1, col2, corr in correlations[:2]:
-                corr_type = "positive" if corr > 0 else "negative"
-                insights_text.append(f"🔗 **Strong {corr_type} correlation**: {col1} & {col2} (r={corr:.2f})")
+            if correlations:
+                for col1, col2, corr in correlations[:2]:
+                    corr_type = "positive" if corr > 0 else "negative"
+                    insights_text.append(f"🔗 **Strong {corr_type} correlation**: {col1} & {col2} (r={corr:.2f})")
+            else:
+                insights_text.append(f"ℹ️ **Low Correlations**: No strong correlations (|r| > 0.7) found between numerical features")
         
         # Limit to top_n insights
         insights_text = insights_text[:top_n]
