@@ -830,7 +830,16 @@ def generate_insights_report(stored_df, stored_column_types) -> Tuple[str, str, 
                         'Metric': col,
                         'Type': 'Top',
                         'Value': f"{row[col]:.2f}" if pd.notna(row[col]) else "N/A",
-                        'Rank': len(performers_data) % 5 + 1
+                        'Rank': len([p for p in performers_data if p['Metric'] == col and p['Type'] == 'Top']) + 1
+                    })
+                
+                # Add bottom performers
+                for idx, row in data['bottom'].iterrows():
+                    performers_data.append({
+                        'Metric': col,
+                        'Type': 'Bottom',
+                        'Value': f"{row[col]:.2f}" if pd.notna(row[col]) else "N/A",
+                        'Rank': len([p for p in performers_data if p['Metric'] == col and p['Type'] == 'Bottom']) + 1
                     })
         
         performers_df = pd.DataFrame(performers_data) if performers_data else None
