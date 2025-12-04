@@ -878,33 +878,35 @@ def create_dashboard():
             gr.Markdown("### Upload Your Dataset")
             gr.Markdown("Supported formats: CSV, Excel (.xlsx, .xls)")
             
-            with gr.Row():
-                with gr.Column(scale=1):
+            with gr.Accordion("📤 File Upload", open=True) as upload_accordion:
+                with gr.Row():
                     file_upload = gr.File(
                         label="Upload File",
                         file_types=['.csv', '.xlsx', '.xls'],
                         type="filepath"
                     )
-                    upload_btn = gr.Button("Load Dataset", variant="primary", size="lg")
-                
-                with gr.Column(scale=1):
-                    upload_status = gr.Textbox(label="Status", interactive=False)
-                    dataset_info = gr.Dataframe(
-                        label="Dataset Information",
-                        interactive=False
-                    )
+                    upload_btn = gr.Button("Load Dataset", variant="primary")
             
-            gr.Markdown("### Dataset Summary")
-            summary_text = gr.Markdown()
+            upload_status = gr.Textbox(label="Status", interactive=False, scale=2)
             
-            gr.Markdown("### Data Preview")
-            with gr.Row():
-                with gr.Column():
-                    gr.Markdown("**First 10 Rows**")
-                    head_preview = gr.Dataframe(label="Head", interactive=False)
-                with gr.Column():
-                    gr.Markdown("**Last 10 Rows**")
-                    tail_preview = gr.Dataframe(label="Tail", interactive=False)
+            with gr.Accordion("📋 Dataset Information", open=True):
+                dataset_info = gr.Dataframe(
+                    label="Dataset Information",
+                    interactive=False,
+                    max_height=200
+                )
+            
+            with gr.Accordion("📝 Dataset Summary", open=True):
+                summary_text = gr.Markdown()
+            
+            with gr.Accordion("📊 Data Preview", open=True):
+                with gr.Row():
+                    with gr.Column():
+                        gr.Markdown("**First 10 Rows**")
+                        head_preview = gr.Dataframe(label="Head", interactive=False, max_height=300)
+                    with gr.Column():
+                        gr.Markdown("**Last 10 Rows**")
+                        tail_preview = gr.Dataframe(label="Tail", interactive=False, max_height=300)
             
             # Column Type Management
             with gr.Accordion("🔧 Column Type Management", open=False):
@@ -955,27 +957,29 @@ def create_dashboard():
             
             calc_stats_btn = gr.Button("Calculate Statistics", variant="primary", size="lg")
             
+            with gr.Accordion("📊 Numerical Statistics", open=True):
+                numerical_stats_display = gr.Dataframe(
+                    label="Numerical Column Statistics",
+                    interactive=False,
+                    max_height=400
+                )
+            
             with gr.Row():
                 with gr.Column():
-                    gr.Markdown("#### Numerical Statistics")
-                    numerical_stats_display = gr.Dataframe(
-                        label="Numerical Column Statistics",
-                        interactive=False
-                    )
+                    with gr.Accordion("📝 Categorical Statistics", open=True):
+                        categorical_stats_display = gr.Markdown()
                 
                 with gr.Column():
-                    gr.Markdown("#### Missing Values Report")
-                    missing_values_display = gr.Dataframe(
-                        label="Missing Values by Column",
-                        interactive=False
-                    )
+                    with gr.Accordion("❓ Missing Values Report", open=True):
+                        missing_values_display = gr.Dataframe(
+                            label="Missing Values by Column",
+                            interactive=False,
+                            max_height=400
+                        )
             
-            gr.Markdown("#### Categorical Statistics")
-            categorical_stats_display = gr.Markdown()
-            
-            gr.Markdown("#### Correlation Analysis")
-            correlation_status = gr.Textbox(label="Status", interactive=False)
-            correlation_plot = gr.Plot(label="Correlation Heatmap")
+            with gr.Accordion("🔗 Correlation Analysis", open=True):
+                correlation_status = gr.Textbox(label="Status", interactive=False)
+                correlation_plot = gr.Plot(label="Correlation Heatmap")
             
             # Connect statistics functionality
             calc_stats_btn.click(
