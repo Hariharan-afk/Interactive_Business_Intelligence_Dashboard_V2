@@ -11,10 +11,10 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 # Import custom modules
-from src.core import data_processor as dp
-from src.visualization import charts as viz
-from src.analytics import insights as ins
-from src.utils import file_utils as utils
+import data_processor as dp
+import visualizations as viz
+import insights as ins
+import utils
 import config
 
 
