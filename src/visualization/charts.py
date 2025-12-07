@@ -18,7 +18,7 @@ plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette(config.DEFAULT_COLOR_PALETTE)
 
 
-def create_missing_value_chart(df: pd.DataFrame) -> plt.Figure:
+def create_missing_value_chart(df: pd.DataFrame) -> go.Figure:
     """
     Create bar chart showing missing values by column.
     
@@ -26,7 +26,7 @@ def create_missing_value_chart(df: pd.DataFrame) -> plt.Figure:
         df: Input DataFrame
         
     Returns:
-        Matplotlib figure
+        Plotly figure
     """
     try:
         missing_data = df.isnull().sum()
@@ -34,31 +34,50 @@ def create_missing_value_chart(df: pd.DataFrame) -> plt.Figure:
         
         if len(missing_data) == 0:
             # No missing values
-            fig, ax = plt.subplots(figsize=config.CHART_FIGURE_SIZE)
-            ax.text(0.5, 0.5, 'No Missing Values Found!', 
-                   ha='center', va='center', fontsize=16, color='green')
-            ax.set_xlim(0, 1)
-            ax.set_ylim(0, 1)
-            ax.axis('off')
+            fig = go.Figure()
+            fig.add_annotation(
+                text='No Missing Values Found!',
+                xref="paper", yref="paper",
+                x=0.5, y=0.5,
+                showarrow=False,
+                font=dict(size=20, color='green')
+            )
+            fig.update_layout(
+                xaxis=dict(visible=False),
+                yaxis=dict(visible=False),
+                height=400
+            )
             return fig
         
-        fig, ax = plt.subplots(figsize=config.CHART_FIGURE_SIZE)
-        missing_data.plot(kind='barh', ax=ax, color=config.COLORS['warning'])
-        ax.set_xlabel('Number of Missing Values', fontsize=12)
-        ax.set_ylabel('Column Name', fontsize=12)
-        ax.set_title('Missing Values by Column', fontsize=14, fontweight='bold')
-        ax.grid(axis='x', alpha=0.3)
+        # Create horizontal bar chart
+        fig = go.Figure(go.Bar(
+            x=missing_data.values,
+            y=missing_data.index,
+            orientation='h',
+            marker=dict(color=config.COLORS['warning']),
+            text=missing_data.values,
+            textposition='auto',
+            hovertemplate='<b>%{y}</b><br>Missing: %{x}<extra></extra>'
+        ))
         
-        plt.tight_layout()
+        fig.update_layout(
+            title=dict(text='Missing Values by Column', font=dict(size=16, family='Arial Black')),
+            xaxis=dict(title='Number of Missing Values', gridcolor='lightgray'),
+            yaxis=dict(title='Column Name'),
+            height=max(400, len(missing_data) * 30),
+            hovermode='closest',
+            plot_bgcolor='white'
+        )
+        
         return fig
     
     except Exception as e:
         print(f"Error creating missing value chart: {str(e)}")
-        return plt.figure()
+        return go.Figure()
 
 
 def create_numerical_distributions(df: pd.DataFrame, numerical_cols: List[str], 
-                                   max_cols: int = 6) -> plt.Figure:
+                                   max_cols: int = 6) -> go.Figure:
     """
     Create histograms for numerical columns.
     
@@ -68,14 +87,23 @@ def create_numerical_distributions(df: pd.DataFrame, numerical_cols: List[str],
         max_cols: Maximum number of columns to plot
         
     Returns:
-        Matplotlib figure
+        Plotly figure
     """
     try:
         if not numerical_cols:
-            fig, ax = plt.subplots(figsize=config.CHART_FIGURE_SIZE)
-            ax.text(0.5, 0.5, 'No Numerical Columns Found', 
-                   ha='center', va='center', fontsize=14)
-            ax.axis('off')
+            fig = go.Figure()
+            fig.add_annotation(
+                text='No Numerical Columns Found',
+                xref="paper", yref="paper",
+                x=0.5, y=0.5,
+                showarrow=False,
+                font=dict(size=16)
+            )
+            fig.update_layout(
+                xaxis=dict(visible=False),
+                yaxis=dict(visible=False),
+                height=400
+            )
             return fig
         
         # Limit to max_cols
@@ -83,41 +111,65 @@ def create_numerical_distributions(df: pd.DataFrame, numerical_cols: List[str],
         n_cols = len(cols_to_plot)
         
         # Calculate grid dimensions
-        n_rows = (n_cols + 1) // 2
         n_plot_cols = min(n_cols, 2)
+        n_rows = (n_cols + 1) // 2
         
-        fig, axes = plt.subplots(n_rows, n_plot_cols, 
-                                figsize=(12, 4 * n_rows))
+        # Import make_subplots
+        from plotly.subplots import make_subplots
         
-        if n_cols == 1:
-            axes = np.array([axes])
-        axes = axes.flatten()
+        # Create subplots
+        fig = make_subplots(
+            rows=n_rows, 
+            cols=n_plot_cols,
+            subplot_titles=[f'Distribution of {col}' for col in cols_to_plot],
+            vertical_spacing=0.12,
+            horizontal_spacing=0.1
+        )
+        
+        colors = config.CHART_COLORS
         
         for idx, col in enumerate(cols_to_plot):
+            row = (idx // n_plot_cols) + 1
+            col_pos = (idx % n_plot_cols) + 1
+            
             data = df[col].dropna()
             
             if len(data) > 0:
-                axes[idx].hist(data, bins=30, color=config.CHART_COLORS[idx % len(config.CHART_COLORS)],
-                             edgecolor='black', alpha=0.7)
-                axes[idx].set_title(f'Distribution of {col}', fontweight='bold')
-                axes[idx].set_xlabel(col)
-                axes[idx].set_ylabel('Frequency')
-                axes[idx].grid(axis='y', alpha=0.3)
+                fig.add_trace(
+                    go.Histogram(
+                        x=data,
+                        name=col,
+                        marker=dict(
+                            color=colors[idx % len(colors)],
+                            line=dict(color='black', width=1)
+                        ),
+                        opacity=0.7,
+                        hovertemplate='<b>%{x}</b><br>Count: %{y}<extra></extra>',
+                        showlegend=False
+                    ),
+                    row=row, col=col_pos
+                )
+                
+                fig.update_xaxes(title_text=col, row=row, col=col_pos, gridcolor='lightgray')
+                fig.update_yaxes(title_text='Frequency', row=row, col=col_pos, gridcolor='lightgray')
         
-        # Hide unused subplots
-        for idx in range(n_cols, len(axes)):
-            axes[idx].set_visible(False)
+        fig.update_layout(
+            title=dict(text='Numerical Column Distributions', font=dict(size=18, family='Arial Black')),
+            height=400 * n_rows,
+            showlegend=False,
+            hovermode='closest',
+            plot_bgcolor='white'
+        )
         
-        plt.tight_layout()
         return fig
     
     except Exception as e:
         print(f"Error creating numerical distributions: {str(e)}")
-        return plt.figure()
+        return go.Figure()
 
 
 def create_categorical_distributions(df: pd.DataFrame, categorical_cols: List[str],
-                                    max_cols: int = 6, top_n: int = 10) -> plt.Figure:
+                                    max_cols: int = 6, top_n: int = 10) -> go.Figure:
     """
     Create bar charts for categorical columns.
     
@@ -128,14 +180,23 @@ def create_categorical_distributions(df: pd.DataFrame, categorical_cols: List[st
         top_n: Show only top N categories per column
         
     Returns:
-        Matplotlib figure
+        Plotly figure
     """
     try:
         if not categorical_cols:
-            fig, ax = plt.subplots(figsize=config.CHART_FIGURE_SIZE)
-            ax.text(0.5, 0.5, 'No Categorical Columns Found', 
-                   ha='center', va='center', fontsize=14)
-            ax.axis('off')
+            fig = go.Figure()
+            fig.add_annotation(
+                text='No Categorical Columns Found',
+                xref="paper", yref="paper",
+                x=0.5, y=0.5,
+                showarrow=False,
+                font=dict(size=16)
+            )
+            fig.update_layout(
+                xaxis=dict(visible=False),
+                yaxis=dict(visible=False),
+                height=400
+            )
             return fig
         
         # Limit to max_cols
@@ -143,46 +204,64 @@ def create_categorical_distributions(df: pd.DataFrame, categorical_cols: List[st
         n_cols = len(cols_to_plot)
         
         # Calculate grid dimensions
-        n_rows = (n_cols + 1) // 2
         n_plot_cols = min(n_cols, 2)
+        n_rows = (n_cols + 1) // 2
         
-        fig, axes = plt.subplots(n_rows, n_plot_cols, 
-                                figsize=(12, 4 * n_rows))
+        # Import make_subplots
+        from plotly.subplots import make_subplots
         
-        if n_cols == 1:
-            axes = np.array([axes])
-        axes = axes.flatten()
+        # Create subplots
+        fig = make_subplots(
+            rows=n_rows, 
+            cols=n_plot_cols,
+            subplot_titles=[f'Top {top_n} in {col}' for col in cols_to_plot],
+            vertical_spacing=0.15,
+            horizontal_spacing=0.1
+        )
+        
+        colors = config.CHART_COLORS
         
         for idx, col in enumerate(cols_to_plot):
+            row = (idx // n_plot_cols) + 1
+            col_pos = (idx % n_plot_cols) + 1
+            
             value_counts = df[col].value_counts().head(top_n)
             
             if len(value_counts) > 0:
-                axes[idx].barh(range(len(value_counts)), value_counts.values,
-                             color=config.CHART_COLORS[idx % len(config.CHART_COLORS)])
-                axes[idx].set_yticks(range(len(value_counts)))
-                axes[idx].set_yticklabels(value_counts.index)
-                axes[idx].set_title(f'Top {min(top_n, len(value_counts))} in {col}', 
-                                  fontweight='bold')
-                axes[idx].set_xlabel('Count')
-                axes[idx].grid(axis='x', alpha=0.3)
+                fig.add_trace(
+                    go.Bar(
+                        x=value_counts.values,
+                        y=value_counts.index,
+                        orientation='h',
+                        name=col,
+                        marker=dict(color=colors[idx % len(colors)]),
+                        text=value_counts.values,
+                        textposition='auto',
+                        hovertemplate='<b>%{y}</b><br>Count: %{x}<extra></extra>',
+                        showlegend=False
+                    ),
+                    row=row, col=col_pos
+                )
                 
-                # Add value labels on bars
-                for i, v in enumerate(value_counts.values):
-                    axes[idx].text(v, i, f' {v}', va='center')
+                fig.update_xaxes(title_text='Count', row=row, col=col_pos, gridcolor='lightgray')
+                fig.update_yaxes(row=row, col=col_pos)
         
-        # Hide unused subplots
-        for idx in range(n_cols, len(axes)):
-            axes[idx].set_visible(False)
+        fig.update_layout(
+            title=dict(text='Categorical Column Distributions', font=dict(size=18, family='Arial Black')),
+            height=400 * n_rows,
+            showlegend=False,
+            hovermode='closest',
+            plot_bgcolor='white'
+        )
         
-        plt.tight_layout()
         return fig
     
     except Exception as e:
         print(f"Error creating categorical distributions: {str(e)}")
-        return plt.figure()
+        return go.Figure()
 
 
-def create_correlation_heatmap(df: pd.DataFrame, numerical_cols: List[str]) -> plt.Figure:
+def create_correlation_heatmap(df: pd.DataFrame, numerical_cols: List[str]) -> go.Figure:
     """
     Create correlation heatmap for numerical columns.
     
@@ -191,32 +270,71 @@ def create_correlation_heatmap(df: pd.DataFrame, numerical_cols: List[str]) -> p
         numerical_cols: List of numerical column names
         
     Returns:
-        Matplotlib figure
+        Plotly figure
     """
     try:
         if not numerical_cols or len(numerical_cols) < 2:
-            fig, ax = plt.subplots(figsize=config.CHART_FIGURE_SIZE)
-            ax.text(0.5, 0.5, 'Need at least 2 numerical columns for correlation', 
-                   ha='center', va='center', fontsize=14)
-            ax.axis('off')
+            fig = go.Figure()
+            fig.add_annotation(
+                text='Need at least 2 numerical columns for correlation',
+                xref="paper", yref="paper",
+                x=0.5, y=0.5,
+                showarrow=False,
+                font=dict(size=16)
+            )
+            fig.update_layout(
+                xaxis=dict(visible=False),
+                yaxis=dict(visible=False),
+                height=400
+            )
             return fig
         
         # Calculate correlation matrix
         corr_matrix = df[numerical_cols].corr()
         
-        # Create heatmap
-        fig, ax = plt.subplots(figsize=config.HEATMAP_FIGURE_SIZE)
-        sns.heatmap(corr_matrix, annot=True, fmt='.2f', cmap='coolwarm', 
-                   center=0, square=True, linewidths=1, cbar_kws={"shrink": 0.8},
-                   ax=ax, vmin=-1, vmax=1)
-        ax.set_title('Correlation Heatmap', fontsize=14, fontweight='bold', pad=20)
+        # Create annotations for heatmap
+        annotations = []
+        for i, row in enumerate(corr_matrix.index):
+            for j, col in enumerate(corr_matrix.columns):
+                annotations.append(
+                    dict(
+                        x=j,
+                        y=i,
+                        text=f'{corr_matrix.iloc[i, j]:.2f}',
+                        showarrow=False,
+                        font=dict(color='white' if abs(corr_matrix.iloc[i, j]) > 0.5 else 'black', size=10)
+                    )
+                )
         
-        plt.tight_layout()
+        # Create heatmap
+        fig = go.Figure(data=go.Heatmap(
+            z=corr_matrix.values,
+            x=corr_matrix.columns,
+            y=corr_matrix.index,
+            colorscale='RdBu_r',  # Red-Blue reversed (similar to coolwarm)
+            zmid=0,
+            zmin=-1,
+            zmax=1,
+            colorbar=dict(title='Correlation'),
+            hovertemplate='<b>%{x} vs %{y}</b><br>Correlation: %{z:.3f}<extra></extra>'
+        ))
+        
+        # Add annotations
+        fig.update_layout(
+            title=dict(text='Correlation Heatmap', font=dict(size=18, family='Arial Black')),
+            annotations=annotations,
+            xaxis=dict(side='bottom', tickangle=-45),
+            yaxis=dict(autorange='reversed'),
+            height=max(500, len(numerical_cols) * 50),
+            width=max(600, len(numerical_cols) * 50),
+            plot_bgcolor='white'
+        )
+        
         return fig
     
     except Exception as e:
         print(f"Error creating correlation heatmap: {str(e)}")
-        return plt.figure()
+        return go.Figure()
 
 
 def create_time_series_plot(df: pd.DataFrame, date_col: str, value_col: str, 

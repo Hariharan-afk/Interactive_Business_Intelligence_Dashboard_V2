@@ -681,7 +681,7 @@ def create_correlation_plot(stored_df, stored_column_types) -> plt.Figure:
         return plt.figure()
 
 
-def generate_overview_charts(stored_df, stored_column_types) -> Tuple[plt.Figure, plt.Figure, plt.Figure, plt.Figure]:
+def generate_overview_charts(stored_df, stored_column_types) -> Tuple[go.Figure, go.Figure, go.Figure, go.Figure]:
     """
     Generate overview visualizations.
     
@@ -690,7 +690,7 @@ def generate_overview_charts(stored_df, stored_column_types) -> Tuple[plt.Figure
     """
     try:
         if stored_df is None or not stored_column_types:
-            empty_fig = plt.figure()
+            empty_fig = go.Figure()
             return empty_fig, empty_fig, empty_fig, empty_fig
         
         # Use stored data
@@ -708,7 +708,7 @@ def generate_overview_charts(stored_df, stored_column_types) -> Tuple[plt.Figure
     
     except Exception as e:
         print(f"Error generating overview charts: {str(e)}")
-        empty_fig = plt.figure()
+        empty_fig = go.Figure()
         return empty_fig, empty_fig, empty_fig, empty_fig
 
 
@@ -1043,7 +1043,7 @@ def create_dashboard():
                     with gr.Accordion("➕ Add New Filter", open=True):
                         # Column selection
                         filter_column = gr.Dropdown(
-                            label="1. Select Column",
+                            label="Select Column",
                             choices=[],
                             interactive=True
                         )
@@ -1051,14 +1051,14 @@ def create_dashboard():
                         # Dynamic filter controls based on type
                         # Numeric
                         with gr.Group(visible=False) as numeric_filter_group:
-                            gr.Markdown("**2. Set Range**")
+                            # gr.Markdown("**2. Set Range**")
                             with gr.Row():
                                 numeric_min = gr.Number(label="Min", value=0)
                                 numeric_max = gr.Number(label="Max", value=100)
                         
                         # Categorical
                         with gr.Group(visible=False) as categorical_filter_group:
-                            gr.Markdown("**2. Select Values**")
+                            # gr.Markdown("**2. Select Values**")
                             categorical_values = gr.Dropdown(
                                 label="Values",
                                 choices=[],
@@ -1068,11 +1068,11 @@ def create_dashboard():
                         
                         # Date
                         with gr.Group(visible=False) as date_filter_group:
-                            gr.Markdown("**2. Set Date Range**")
+                            # gr.Markdown("**2. Set Date Range**")
                             date_start = gr.Textbox(label="Start Date (YYYY-MM-DD)", placeholder="2020-01-01")
                             date_end = gr.Textbox(label="End Date (YYYY-MM-DD)", placeholder="2020-12-31")
                         
-                        add_filter_btn = gr.Button("3. + Add Filter", variant="primary")
+                        add_filter_btn = gr.Button("+ Add Filter", variant="primary")
                     
                     # Active Filters Section
                     with gr.Accordion("✓ Active Filters", open=True):
@@ -1154,9 +1154,9 @@ def create_dashboard():
             )
         
         # ============= TAB 5: VISUALIZATIONS - OVERVIEW =============
-        with gr.Tab("📊 Visualizations - Overview"):
+        with gr.Tab("📊 Column Distributions"):
             gr.Markdown("### Automated Data Visualizations")
-            gr.Markdown("Generate comprehensive overview charts of your dataset")
+            gr.Markdown("Generate comprehensive overview charts of the distributions of the columns in the loaded dataset")
             
             generate_charts_btn = gr.Button("Generate Overview Charts", variant="primary", size="lg")
             
@@ -1184,9 +1184,9 @@ def create_dashboard():
             )
         
         # ============= TAB 6: VISUALIZATIONS - CUSTOM =============
-        with gr.Tab("🎨 Visualizations - Custom"):
+        with gr.Tab("🎨 Visualizations"):
             gr.Markdown("### Create Custom Visualizations")
-            gr.Markdown("Build your own charts by selecting columns and chart types")
+            gr.Markdown("Build your own charts by selecting columns and chart types and export them as PNG files")
             
             with gr.Row():
                 chart_type = gr.Radio(
