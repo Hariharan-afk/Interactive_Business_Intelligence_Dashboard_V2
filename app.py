@@ -491,7 +491,13 @@ def update_filter_controls(stored_df, stored_column_types, selected_column):
         Tuple of updates for all filter controls
     """
     try:
+        print(f"\n=== DEBUG update_filter_controls ===")
+        print(f"Selected column: {selected_column}")
+        print(f"DataFrame is None: {stored_df is None}")
+        print(f"Column types dict: {stored_column_types}")
+        
         if not selected_column or stored_df is None or not stored_column_types:
+            print("DEBUG: Returning empty state (no selection or no data)")
             return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
                    gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
                    gr.update(choices=[], value=None, interactive=True), 
@@ -500,10 +506,13 @@ def update_filter_controls(stored_df, stored_column_types, selected_column):
         col_type = stored_column_types.get(selected_column)
         df = stored_df
         
+        print(f"Column type for '{selected_column}': {col_type}")
+        
         if col_type == "numeric":
             # Get min/max for numeric column
             min_val = float(df[selected_column].min())
             max_val = float(df[selected_column].max())
+            print(f"DEBUG: Numeric column - min: {min_val}, max: {max_val}")
             return (gr.update(visible=True), gr.update(visible=False), gr.update(visible=False),
                    gr.update(value=min_val, visible=True), gr.update(value=max_val, visible=True), 
                    gr.update(choices=[], value=None, interactive=True),
@@ -512,26 +521,38 @@ def update_filter_controls(stored_df, stored_column_types, selected_column):
         elif col_type == "categorical":
             # Get unique values for categorical column
             unique_vals = sorted(df[selected_column].dropna().unique().astype(str).tolist())
-            return (gr.update(visible=False), gr.update(visible=True), gr.update(visible=False),
+            print(f"DEBUG: Categorical column")
+            print(f"  - Number of unique values: {len(unique_vals)}")
+            print(f"  - First 5 values: {unique_vals[:5]}")
+            print(f"  - Updating dropdown with choices={len(unique_vals)} items, value=None, interactive=True")
+            
+            result = (gr.update(visible=False), gr.update(visible=True), gr.update(visible=False),
                    gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
                    gr.update(choices=unique_vals, value=None, interactive=True),
                    gr.update(visible=False), gr.update(visible=False))
+            
+            print(f"  - Categorical values update object: {result[5]}")
+            return result
         
         elif col_type == "datetime":
             # Show date filter
+            print("DEBUG: DateTime column")
             return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=True),
                    gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
                    gr.update(choices=[], value=None, interactive=True),
                    gr.update(visible=True), gr.update(visible=True))
         
         else:  # text
+            print(f"DEBUG: Text column (or unknown type: {col_type})")
             return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
                    gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
                    gr.update(choices=[], value=None, interactive=True),
                    gr.update(visible=False), gr.update(visible=False))
     
     except Exception as e:
-        print(f"Error updating filter controls: {str(e)}")
+        print(f"ERROR in update_filter_controls: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
                gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
                gr.update(choices=[], value=None, interactive=True),
@@ -1101,6 +1122,18 @@ def create_dashboard():
                 inputs=[stored_df, stored_column_types, filter_column],
                 outputs=[numeric_filter_group, categorical_filter_group, date_filter_group,
                         numeric_min, numeric_max, categorical_values, date_start, date_end]
+            ).then(
+                # Force re-render of categorical dropdown with a second update
+                fn=lambda df, types, col: (
+                    gr.update(
+                        choices=sorted(df[col].dropna().unique().astype(str).tolist()) 
+                        if col and types.get(col) == 'categorical' and df is not None 
+                        else [],
+                        value=None
+                    )
+                ),
+                inputs=[stored_df, stored_column_types, filter_column],
+                outputs=[categorical_values]
             )
             
             # 2. Add Filter
