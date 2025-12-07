@@ -488,45 +488,90 @@ def update_filter_controls(stored_df, stored_column_types, selected_column):
     Update filter controls based on selected column type.
     
     Returns:
-        Tuple of updates for all filter controls
+        Tuple of updates for all filter controls (12 values)
     """
     try:
+        print(f"\n=== DEBUG update_filter_controls ===")
+        print(f"Selected column: {selected_column}")
+        
         if not selected_column or stored_df is None or not stored_column_types:
+            print("DEBUG: No column selected or no data - returning hidden state")
             return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
                    gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
+                   gr.update(minimum=0, maximum=100, value=0, step=1, visible=False),
+                   gr.update(minimum=0, maximum=100, value=100, step=1, visible=False),
                    gr.update(choices=[], value=None, interactive=False, visible=False), 
                    gr.update(value="", visible=False), gr.update(value="", visible=False))
         
         col_type = stored_column_types.get(selected_column)
         df = stored_df
         
+        print(f"Column type: {col_type}")
+        
         if col_type == "numeric":
             # Get min/max for numeric column
             min_val = float(df[selected_column].min())
             max_val = float(df[selected_column].max())
+            
+            print(f"DEBUG: Numeric column '{selected_column}'")
+            print(f"  - Data range: min={min_val}, max={max_val}")
+            
+            # Calculate reasonable step size
+            range_val = max_val - min_val
+            step = max(range_val / 1000, 0.01) if range_val > 0 else 1
+            
+            print(f"  - Range: {range_val}, Step: {step}")
+            print(f"  - Updating sliders: min_slider(min={min_val}, max={max_val}, value={min_val})")
+            print(f"  - Updating sliders: max_slider(min={min_val}, max={max_val}, value={max_val})")
+            
             return (gr.update(visible=True), gr.update(visible=False), gr.update(visible=False),
                    gr.update(value=min_val, visible=True), gr.update(value=max_val, visible=True), 
+                   gr.update(minimum=min_val, maximum=max_val, value=min_val, step=step, visible=True),
+                   gr.update(minimum=min_val, maximum=max_val, value=max_val, step=step, visible=True),
                    gr.update(choices=[], value=None, interactive=False, visible=False),
                    gr.update(value="", visible=False), gr.update(value="", visible=False))
         
         elif col_type == "categorical":
             # Get unique values for categorical column
             unique_vals = sorted(df[selected_column].dropna().unique().astype(str).tolist())
+            print(f"DEBUG: Categorical column - {len(unique_vals)} unique values")
             return (gr.update(visible=False), gr.update(visible=True), gr.update(visible=False),
                    gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
+                   gr.update(minimum=0, maximum=100, value=0, step=1, visible=False),
+                   gr.update(minimum=0, maximum=100, value=100, step=1, visible=False),
                    gr.update(choices=unique_vals, value=None, interactive=True, visible=True),
                    gr.update(value="", visible=False), gr.update(value="", visible=False))
         
         elif col_type == "datetime":
-            # Show date filter
+            # Get min and max dates from column
+            try:
+                date_series = pd.to_datetime(df[selected_column], errors='coerce')
+                min_date = date_series.min()
+                max_date = date_series.max()
+                
+                # Format as strings
+                start_date_str = min_date.strftime('%Y-%m-%d') if pd.notna(min_date) else ""
+                end_date_str = max_date.strftime('%Y-%m-%d') if pd.notna(max_date) else ""
+                
+                print(f"DEBUG: DateTime column - Range: {start_date_str} to {end_date_str}")
+            except Exception as e:
+                print(f"Error parsing dates for {selected_column}: {str(e)}")
+                start_date_str = ""
+                end_date_str = ""
+            
             return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=True),
                    gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
+                   gr.update(minimum=0, maximum=100, value=0, step=1, visible=False),
+                   gr.update(minimum=0, maximum=100, value=100, step=1, visible=False),
                    gr.update(choices=[], value=None, interactive=False, visible=False),
-                   gr.update(value="", visible=True), gr.update(value="", visible=True))
+                   gr.update(value=start_date_str, visible=True), gr.update(value=end_date_str, visible=True))
         
         else:  # text
-            return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
+            print(f"DEBUG: Text column")
+            return (gr.update(visible=False), gr.update(visible=False), gr.update(False),
                    gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
+                   gr.update(minimum=0, maximum=100, value=0, visible=False),
+                   gr.update(minimum=0, maximum=100, value=100, visible=False),
                    gr.update(choices=[], value=None, interactive=False, visible=False),
                    gr.update(value="", visible=False), gr.update(value="", visible=False))
     
@@ -536,6 +581,8 @@ def update_filter_controls(stored_df, stored_column_types, selected_column):
         traceback.print_exc()
         return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
                gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
+               gr.update(minimum=0, maximum=100, value=0, visible=False),
+               gr.update(minimum=0, maximum=100, value=100, visible=False),
                gr.update(choices=[], value=None, interactive=False, visible=False),
                gr.update(value="", visible=False), gr.update(value="", visible=False))
 
@@ -1053,8 +1100,17 @@ def create_dashboard():
                         with gr.Group(visible=False) as numeric_filter_group:
                             # gr.Markdown("**2. Set Range**")
                             with gr.Row():
-                                numeric_min = gr.Number(label="Min", value=0)
-                                numeric_max = gr.Number(label="Max", value=100)
+                                numeric_min = gr.Number(label="Min Value", value=0)
+                                numeric_max = gr.Number(label="Max Value", value=100)
+                            with gr.Row():
+                                numeric_min_slider = gr.Slider(
+                                    minimum=0, maximum=100, value=0,
+                                    label="Min Slider", interactive=True
+                                )
+                                numeric_max_slider = gr.Slider(
+                                    minimum=0, maximum=100, value=100,
+                                    label="Max Slider", interactive=True
+                                )
                         
                         # Categorical
                         with gr.Group(visible=False) as categorical_filter_group:
@@ -1102,7 +1158,8 @@ def create_dashboard():
                 fn=update_filter_controls,
                 inputs=[stored_df, stored_column_types, filter_column],
                 outputs=[numeric_filter_group, categorical_filter_group, date_filter_group,
-                        numeric_min, numeric_max, categorical_values, date_start, date_end]
+                        numeric_min, numeric_max, numeric_min_slider, numeric_max_slider,
+                        categorical_values, date_start, date_end]
             ).then(
                 # Force re-render of categorical dropdown with a second update
                 fn=lambda df, types, col: (
@@ -1115,7 +1172,48 @@ def create_dashboard():
                 ),
                 inputs=[stored_df, stored_column_types, filter_column],
                 outputs=[categorical_values]
+            ).then(
+                # Force re-render of numerical sliders and inputs with a second update
+                fn=lambda df, types, col: (
+                    gr.update(value=float(df[col].min())) if col and types.get(col) == 'numeric' and df is not None else gr.update(),
+                    gr.update(value=float(df[col].max())) if col and types.get(col) == 'numeric' and df is not None else gr.update(),
+                    gr.update(
+                        minimum=float(df[col].min()),
+                        maximum=float(df[col].max()),
+                        value=float(df[col].min()),
+                        step=max((float(df[col].max()) - float(df[col].min())) / 1000, 0.01) if float(df[col].max()) > float(df[col].min()) else 1
+                    ) if col and types.get(col) == 'numeric' and df is not None else gr.update(),
+                    gr.update(
+                        minimum=float(df[col].min()),
+                        maximum=float(df[col].max()),
+                        value=float(df[col].max()),
+                        step=max((float(df[col].max()) - float(df[col].min())) / 1000, 0.01) if float(df[col].max()) > float(df[col].min()) else 1
+                    ) if col and types.get(col) == 'numeric' and df is not None else gr.update(),
+                    gr.update(value=pd.to_datetime(df[col]).min().strftime('%Y-%m-%d') if pd.notna(pd.to_datetime(df[col]).min()) else "") if col and types.get(col) == 'datetime' and df is not None else gr.update(),
+                    gr.update(value=pd.to_datetime(df[col]).max().strftime('%Y-%m-%d') if pd.notna(pd.to_datetime(df[col]).max()) else "") if col and types.get(col) == 'datetime' and df is not None else gr.update()
+                ),
+                inputs=[stored_df, stored_column_types, filter_column],
+                outputs=[numeric_min, numeric_max, numeric_min_slider, numeric_max_slider, date_start, date_end]
             )
+            
+            # Slider synchronization: One-way sync from sliders to number inputs only
+            # (Two-way sync causes validation errors when switching columns)
+            numeric_min_slider.change(
+                fn=lambda val: gr.update(value=val),
+                inputs=[numeric_min_slider],
+                outputs=[numeric_min]
+            )
+            
+            numeric_max_slider.change(
+                fn=lambda val: gr.update(value=val),
+                inputs=[numeric_max_slider],
+                outputs=[numeric_max]
+            )
+            
+            # Note: Number box -> slider sync removed to prevent Gradio validation errors
+            # when switching between columns with different ranges
+            
+            
             
             # 2. Add Filter
             add_filter_btn.click(
