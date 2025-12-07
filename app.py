@@ -41,23 +41,28 @@ def upload_and_preview(file) -> Tuple[str, pd.DataFrame, pd.DataFrame, str, pd.D
     """
     try:
         if file is None:
-            return "Please upload a file", None, None, "", None
+            gr.Warning("Please upload a CSV or Excel file before clicking Load Dataset")
+            return "⚠️ Please upload a CSV or Excel file before clicking Load Dataset", None, None, "", None, None, {}
         
         # Validate file
         is_valid, msg = utils.validate_file_upload(file.name)
         if not is_valid:
-            return msg, None, None, "", None
+            gr.Warning(msg)
+            return msg, None, None, "", None, None, {}
         
         # Load dataset
         df, status = dp.load_dataset(file.name)
         
         if df is None:
-            return status, None, None, "", None
+            gr.Warning(status)
+            return status, None, None, "", None, None, {}
         
         # Validate dataset
         validation = dp.validate_dataset(df)
         if not validation['is_valid']:
-            return f"Validation failed: {', '.join(validation['errors'])}", None, None, "", None
+            error_msg = f"⚠️ Dataset validation failed: {', '.join(validation['errors'])}"
+            gr.Warning(error_msg)
+            return error_msg, None, None, "", None, None, {}
         
         # Auto-detect column types
         column_types = dp.auto_detect_column_types(df)
@@ -94,7 +99,9 @@ def upload_and_preview(file) -> Tuple[str, pd.DataFrame, pd.DataFrame, str, pd.D
         return status, head_df, tail_df, summary, info_df, df, column_types
     
     except Exception as e:
-        return f"Error: {str(e)}", None, None, "", None, None, {}
+        error_msg = f"⚠️ Error loading dataset. Please ensure the file is a valid CSV or Excel file."
+        gr.Warning(error_msg)
+        return error_msg, None, None, "", None, None, {}
 
 
 def show_column_types(stored_df, stored_column_types) -> Tuple[pd.DataFrame, str]:
@@ -878,51 +885,47 @@ def create_dashboard():
             gr.Markdown("### Upload Your Dataset")
             gr.Markdown("Supported formats: CSV, Excel (.xlsx, .xls)")
             
-            with gr.Accordion("📤 File Upload", open=True) as upload_accordion:
-                with gr.Row():
-                    file_upload = gr.File(
-                        label="Upload File",
-                        file_types=['.csv', '.xlsx', '.xls'],
-                        type="filepath"
-                    )
-                    upload_btn = gr.Button("Load Dataset", variant="primary")
+            # File Upload Section (Static)
+            gr.Markdown("#### 📤 File Upload")
+            file_upload = gr.File(
+                label="Upload File",
+                file_types=['.csv', '.xlsx', '.xls'],
+                type="filepath"
+            )
+            with gr.Row():
+                with gr.Column(scale=1):
+                    pass
+                with gr.Column(scale=1):
+                    upload_btn = gr.Button("Load Dataset", variant="primary", size="lg")
+                with gr.Column(scale=1):
+                    pass
             
             upload_status = gr.Textbox(label="Status", interactive=False, scale=2)
             
-            with gr.Accordion("📋 Dataset Information", open=True):
-                dataset_info = gr.Dataframe(
-                    label="Dataset Information",
-                    interactive=False,
-                    max_height=200
-                )
-            
-            with gr.Accordion("📝 Dataset Summary", open=True):
-                summary_text = gr.Markdown()
-            
-            with gr.Accordion("📊 Data Preview", open=True):
-                with gr.Row():
-                    with gr.Column():
-                        gr.Markdown("**First 10 Rows**")
-                        head_preview = gr.Dataframe(label="Head", interactive=False, max_height=300)
-                    with gr.Column():
-                        gr.Markdown("**Last 10 Rows**")
-                        tail_preview = gr.Dataframe(label="Tail", interactive=False, max_height=300)
-            
-            # Column Type Management
-            with gr.Accordion("🔧 Column Type Management", open=False):
-                gr.Markdown("Auto-detected column types. Modify if needed:")
-                
-                show_types_btn = gr.Button("Show Column Types")
-                column_types_display = gr.Dataframe(label="Column Types", interactive=False)
-                type_status = gr.Textbox(label="Status", interactive=False)
-                
-                with gr.Row():
-                    column_selector = gr.Dropdown(label="Select Column", choices=[])
-                    type_selector = gr.Dropdown(
-                        label="New Type",
-                        choices=['numeric', 'categorical', 'datetime', 'text']
+            # Dataset Information and Summary side-by-side
+            with gr.Row():
+                with gr.Column(scale=1):
+                    gr.Markdown("#### 📋 Dataset Information")
+                    dataset_info = gr.Dataframe(
+                        label="Dataset Information",
+                        interactive=False,
+                        max_height=300,
+                        wrap=True,
+                        column_widths=["50%", "50%"]
                     )
-                    update_type_btn = gr.Button("Update Type", variant="secondary")
+                with gr.Column(scale=1):
+                    gr.Markdown("#### 📝 Dataset Summary")
+                    summary_text = gr.Markdown()
+            
+            # Data Preview (Static)
+            gr.Markdown("#### 📊 Data Preview")
+            with gr.Row():
+                with gr.Column():
+                    gr.Markdown("**First "+str(config.DEFAULT_PREVIEW_ROWS)+" Rows**")
+                    head_preview = gr.Dataframe(label="Head", interactive=False, max_height=500)
+                with gr.Column():
+                    gr.Markdown("**Last "+str(config.DEFAULT_PREVIEW_ROWS)+" Rows**")
+                    tail_preview = gr.Dataframe(label="Tail", interactive=False, max_height=500)
             
             # Connect upload functionality
             upload_btn.click(
@@ -934,8 +937,47 @@ def create_dashboard():
                     inputs=[file_upload],
                     outputs=[uploaded_file]
                 )
+        
+        # ============= TAB 2: COLUMN TYPE MANAGEMENT =============
+        with gr.Tab("🔧 Column Type Management"):
+            gr.Markdown("## Manage Column Data Types")
+            gr.Markdown("**Auto-detected column types are displayed below. You can modify them if needed.**")
+            
+            # gr.Markdown("#### Auto-Detected Column Types")
+            column_types_display = gr.Dataframe(
+                label="Auto-Detected Column Types",
+                interactive=False,
+                max_height=400,
+                wrap=True
+            )
+            type_status = gr.Textbox(label="Status", interactive=False, value="Upload a dataset to see column types")
+            
+            gr.Markdown("### Update Column Type")
+            with gr.Row():
+                with gr.Column(scale=2):
+                    column_selector = gr.Dropdown(
+                        label="Select Column to Modify",
+                        choices=[],
+                        interactive=True
+                    )
+                with gr.Column(scale=2):
+                    type_selector = gr.Dropdown(
+                        label="Select Type",
+                        choices=['numeric', 'categorical', 'datetime', 'text'],
+                        interactive=True
+                    )
                 
-            show_types_btn.click(
+            update_type_btn = gr.Button("Update Type", variant="secondary", size="lg")
+            
+            # Connect Column Type Management functionality
+            update_type_btn.click(
+                fn=update_column_type,
+                inputs=[stored_df, stored_column_types, column_selector, type_selector],
+                outputs=[type_status, column_types_display, stored_df, stored_column_types]
+            )
+            
+            # Auto-populate column types when dataset is uploaded
+            upload_btn.click(
                 fn=show_column_types,
                 inputs=[stored_df, stored_column_types],
                 outputs=[column_types_display, type_status]
@@ -944,14 +986,8 @@ def create_dashboard():
                 inputs=[file_upload],
                 outputs=[column_selector]
             )
-            
-            update_type_btn.click(
-                fn=update_column_type,
-        inputs=[stored_df, stored_column_types, column_selector, type_selector],
-        outputs=[type_status, column_types_display, stored_df, stored_column_types]
-            )
         
-        # ============= TAB 2: STATISTICS =============
+        # ============= TAB 3: STATISTICS =============
         with gr.Tab("📈 Statistics"):
             gr.Markdown("### Comprehensive Statistical Analysis")
             
@@ -993,7 +1029,7 @@ def create_dashboard():
                 outputs=[correlation_plot]
             )
         
-        # ============= TAB 3: FILTER & EXPLORE =============
+        # ============= TAB 4: FILTER & EXPLORE =============
         with gr.Tab("🔍 Filter & Explore"):
             gr.Markdown("### Filter Data and Export")
             gr.Markdown("Add multiple filters to explore specific subsets of your data.")
@@ -1106,7 +1142,7 @@ def create_dashboard():
                 outputs=[export_file]
             )
         
-        # ============= TAB 4: VISUALIZATIONS - OVERVIEW =============
+        # ============= TAB 5: VISUALIZATIONS - OVERVIEW =============
         with gr.Tab("📊 Visualizations - Overview"):
             gr.Markdown("### Automated Data Visualizations")
             gr.Markdown("Generate comprehensive overview charts of your dataset")
@@ -1136,7 +1172,7 @@ def create_dashboard():
                 outputs=[missing_plot, numerical_plot, categorical_plot, correlation_plot_overview]
             )
         
-        # ============= TAB 5: VISUALIZATIONS - CUSTOM =============
+        # ============= TAB 6: VISUALIZATIONS - CUSTOM =============
         with gr.Tab("🎨 Visualizations - Custom"):
             gr.Markdown("### Create Custom Visualizations")
             gr.Markdown("Build your own charts by selecting columns and chart types")
@@ -1187,7 +1223,7 @@ def create_dashboard():
                 outputs=[custom_chart]
             )
         
-        # ============= TAB 6: INSIGHTS =============
+        # ============= TAB 7: INSIGHTS =============
         with gr.Tab("💡 Insights"):
             gr.Markdown("### Automated Insights & Pattern Detection")
             gr.Markdown("Discover key patterns, outliers, and trends in your data")
@@ -1223,7 +1259,7 @@ def create_dashboard():
 if __name__ == "__main__":
     demo = create_dashboard()
     demo.launch(
-        server_name="0.0.0.0",  # Use 0.0.0.0 for HF Spaces compatibility
+        server_name="127.0.0.1",  # Use 0.0.0.0 for HF Spaces compatibility
         server_port=7860,  # Default Gradio port for HF Spaces
         share=False,  # Not needed on HF Spaces (auto-handled)
         show_error=True,

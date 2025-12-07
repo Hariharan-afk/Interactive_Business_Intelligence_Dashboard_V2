@@ -6,7 +6,7 @@ Contains constants and configuration settings.
 # File handling constants
 MAX_FILE_SIZE_MB = 100
 SUPPORTED_FILE_TYPES = ['.csv', '.xlsx', '.xls']
-DEFAULT_PREVIEW_ROWS = 10
+DEFAULT_PREVIEW_ROWS = 15
 MAX_PREVIEW_ROWS = 1000
 
 # Data processing constants
