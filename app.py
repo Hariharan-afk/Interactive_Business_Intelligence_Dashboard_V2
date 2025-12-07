@@ -494,7 +494,7 @@ def update_filter_controls(stored_df, stored_column_types, selected_column):
         if not selected_column or stored_df is None or not stored_column_types:
             return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
                    gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
-                   gr.update(choices=[], value=[]), 
+                   gr.update(choices=[], value=None, interactive=True), 
                    gr.update(visible=False), gr.update(visible=False))
         
         col_type = stored_column_types.get(selected_column)
@@ -506,7 +506,7 @@ def update_filter_controls(stored_df, stored_column_types, selected_column):
             max_val = float(df[selected_column].max())
             return (gr.update(visible=True), gr.update(visible=False), gr.update(visible=False),
                    gr.update(value=min_val, visible=True), gr.update(value=max_val, visible=True), 
-                   gr.update(choices=[], value=[]),
+                   gr.update(choices=[], value=None, interactive=True),
                    gr.update(visible=False), gr.update(visible=False))
         
         elif col_type == "categorical":
@@ -514,27 +514,27 @@ def update_filter_controls(stored_df, stored_column_types, selected_column):
             unique_vals = sorted(df[selected_column].dropna().unique().astype(str).tolist())
             return (gr.update(visible=False), gr.update(visible=True), gr.update(visible=False),
                    gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
-                   gr.update(choices=unique_vals, value=[]),
+                   gr.update(choices=unique_vals, value=None, interactive=True),
                    gr.update(visible=False), gr.update(visible=False))
         
         elif col_type == "datetime":
             # Show date filter
             return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=True),
                    gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
-                   gr.update(choices=[], value=[]),
+                   gr.update(choices=[], value=None, interactive=True),
                    gr.update(visible=True), gr.update(visible=True))
         
         else:  # text
             return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
                    gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
-                   gr.update(choices=[], value=[]),
+                   gr.update(choices=[], value=None, interactive=True),
                    gr.update(visible=False), gr.update(visible=False))
     
     except Exception as e:
         print(f"Error updating filter controls: {str(e)}")
         return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
                gr.update(value=0, visible=False), gr.update(value=100, visible=False), 
-               gr.update(choices=[], value=[]),
+               gr.update(choices=[], value=None, interactive=True),
                gr.update(visible=False), gr.update(visible=False))
 
 
@@ -1040,14 +1040,11 @@ def create_dashboard():
                     # Add New Filter Section
                     with gr.Accordion("➕ Add New Filter", open=True):
                         # Column selection
-                        with gr.Row():
-                            setup_filters_btn = gr.Button("🔄 Load Columns", size="sm", scale=1)
-                            filter_column = gr.Dropdown(
-                                label="1. Select Column",
-                                choices=[],
-                                interactive=True,
-                                scale=3
-                            )
+                        filter_column = gr.Dropdown(
+                            label="1. Select Column",
+                            choices=[],
+                            interactive=True
+                        )
                         
                         # Dynamic filter controls based on type
                         # Numeric
@@ -1098,14 +1095,7 @@ def create_dashboard():
             
             # Event Handlers
             
-            # 1. Setup filters (populate column dropdown)
-            setup_filters_btn.click(
-                fn=setup_filters,
-                inputs=[stored_df, stored_column_types],
-                outputs=[filter_column, filter_status]
-            )
-            
-            # 2. Update controls when column changes
+            # 1. Update controls when column changes
             filter_column.change(
                 fn=update_filter_controls,
                 inputs=[stored_df, stored_column_types, filter_column],
@@ -1113,7 +1103,7 @@ def create_dashboard():
                         numeric_min, numeric_max, categorical_values, date_start, date_end]
             )
             
-            # 3. Add Filter
+            # 2. Add Filter
             add_filter_btn.click(
                 fn=add_filter_to_list,
                 inputs=[active_filters, stored_df, stored_column_types, filter_column,
@@ -1121,25 +1111,32 @@ def create_dashboard():
                 outputs=[active_filters, active_filters_display, filtered_preview, filter_status]
             )
             
-            # 4. Remove Filter
+            # 3. Remove Filter
             remove_filter_btn.click(
                 fn=lambda filters, df, idx: remove_filter_from_list(filters, df, int(idx)-1),
                 inputs=[active_filters, stored_df, filter_to_remove],
                 outputs=[active_filters, active_filters_display, filtered_preview, filter_status]
             )
             
-            # 5. Clear All
+            # 4. Clear All
             clear_all_btn.click(
                 fn=clear_all_active_filters,
                 inputs=[stored_df],
                 outputs=[active_filters, active_filters_display, filtered_preview, filter_status]
             )
             
-            # 6. Export
+            # 5. Export
             export_btn.click(
                 fn=export_multi_filtered_data,
                 inputs=[stored_df, active_filters],
                 outputs=[export_file]
+            )
+            
+            # Auto-populate filter column dropdown when dataset is uploaded
+            upload_btn.click(
+                fn=setup_filters,
+                inputs=[stored_df, stored_column_types],
+                outputs=[filter_column, filter_status]
             )
         
         # ============= TAB 5: VISUALIZATIONS - OVERVIEW =============
